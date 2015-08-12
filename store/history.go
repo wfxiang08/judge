@@ -73,13 +73,19 @@ func (this *JudgeItemMap) CleanStale(before int64) {
 }
 
 func (this *JudgeItemMap) PushFrontAndMaintain(key string, val *model.JudgeItem, maxCount int, now int64) {
+
+	// 什么时候需要Judge, 基本上有"有效的"新元素到来时就会进行judge
+	// key 一个独立的监控项目
+	//
 	if linkedList, exists := this.Get(key); exists {
+		// 添加val到list中
 		needJudge := linkedList.PushFrontAndMaintain(val, maxCount)
 		if needJudge {
 			Judge(linkedList, val, now)
 		}
 	} else {
 		NL := list.New()
+		// 添加新的list
 		NL.PushFront(val)
 		safeList := &SafeLinkedList{L: NL}
 		this.Set(key, safeList)

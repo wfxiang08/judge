@@ -46,7 +46,9 @@ func (this *SafeLinkedList) HistoryData(limit int) ([]*model.HistoryData, bool) 
 	var vs []*model.HistoryData
 	isEnough := true
 
-	judgeType := firstItem.JudgeType[0]
+	judgeType := firstItem.JudgeType[0] // 所有的元素的JudgeType都一样
+
+	// 测量值(Gauge), 没有累计概念，是多少返回多少，例如: 内存使用，CPU占用
 	if judgeType == 'G' || judgeType == 'g' {
 		if size < limit {
 			// 有多少获取多少
@@ -57,11 +59,13 @@ func (this *SafeLinkedList) HistoryData(limit int) ([]*model.HistoryData, bool) 
 		vs[0] = &model.HistoryData{Timestamp: firstItem.Timestamp, Value: firstItem.Value}
 		i := 1
 		currentElement := firstElement
+		// 计算直接取样
 		for i < limit {
 			nextElement := currentElement.Next()
+			currentValue := nextElement.Value.(*model.JudgeItem)
 			vs[i] = &model.HistoryData{
-				Timestamp: nextElement.Value.(*model.JudgeItem).Timestamp,
-				Value:     nextElement.Value.(*model.JudgeItem).Value,
+				Timestamp: currentValue.Timestamp,
+				Value:     currentValue.Value,
 			}
 			i++
 			currentElement = nextElement
@@ -74,14 +78,20 @@ func (this *SafeLinkedList) HistoryData(limit int) ([]*model.HistoryData, bool) 
 
 		vs = make([]*model.HistoryData, limit)
 
+		// 累计值，例如: counter, 一般看速度
 		i := 0
 		currentElement := firstElement
 		for i < limit {
 			nextElement := currentElement.Next()
-			diffVal := currentElement.Value.(*model.JudgeItem).Value - nextElement.Value.(*model.JudgeItem).Value
-			diffTs := currentElement.Value.(*model.JudgeItem).Timestamp - nextElement.Value.(*model.JudgeItem).Timestamp
+			currentValue := currentElement.Value.(*model.JudgeItem)
+			nextValue := nextElement.Value.(*model.JudgeItem)
+
+			// 计算时间平均
+			diffVal := currentValue.Value - nextValue.Value
+			diffTs := currentValue.Timestamp - nextValue.Timestamp
+
 			vs[i] = &model.HistoryData{
-				Timestamp: currentElement.Value.(*model.JudgeItem).Timestamp,
+				Timestamp: currentValue.Timestamp,
 				Value:     diffVal / float64(diffTs),
 			}
 			i++
@@ -118,6 +128,7 @@ func (this *SafeLinkedList) PushFrontAndMaintain(v *model.JudgeItem, maxCount in
 		return true
 	}
 
+	// 删除后面的元素
 	del := sz - maxCount
 	for i := 0; i < del; i++ {
 		this.L.Remove(this.L.Back())

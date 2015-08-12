@@ -18,7 +18,10 @@ func (this *Judge) Send(items []*model.JudgeItem, resp *model.SimpleRpcResponse)
 	// 把当前时间的计算放在最外层，是为了减少获取时间时的系统调用开销
 	now := time.Now().Unix()
 	for _, item := range items {
+		// 将同一个监控项目的内容合并
 		pk := item.PrimaryKey()
+
+		// 按照pk的头两个字符进行hash
 		store.HistoryBigMap[pk[0:2]].PushFrontAndMaintain(pk, item, remain, now)
 	}
 	return nil

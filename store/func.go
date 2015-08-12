@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// 各种报警触发函数
+// http://book.open-falcon.com/zh/usage/func.html
+//
 type Function interface {
 	Compute(L *SafeLinkedList) (vs []*model.HistoryData, leftValue float64, isTriggered bool, isEnough bool)
 }
@@ -20,11 +23,17 @@ type MaxFunction struct {
 }
 
 func (this MaxFunction) Compute(L *SafeLinkedList) (vs []*model.HistoryData, leftValue float64, isTriggered bool, isEnough bool) {
+	// 1. 如何执行指定的策略?
+	// 获取一定数量的数据, 例如: all(#3) sum(#3) avg(#10) diff(#10)
+	// Limit就是其中的 3, 3, 10, 10等
 	vs, isEnough = L.HistoryData(this.Limit)
 	if !isEnough {
 		return
 	}
 
+	// 2. 取HisotryData中最大的value
+	//  max(#) 对于最新的3个点，其最大值满足阈值条件则报警
+	// 选择其中最大的一个点
 	max := vs[0].Value
 	for i := 1; i < this.Limit; i++ {
 		if max < vs[i].Value {
@@ -50,6 +59,7 @@ func (this MinFunction) Compute(L *SafeLinkedList) (vs []*model.HistoryData, lef
 		return
 	}
 
+	// 最小的三个点
 	min := vs[0].Value
 	for i := 1; i < this.Limit; i++ {
 		if min > vs[i].Value {
@@ -75,6 +85,7 @@ func (this AllFunction) Compute(L *SafeLinkedList) (vs []*model.HistoryData, lef
 		return
 	}
 
+	// 所有的
 	isTriggered = true
 	for i := 0; i < this.Limit; i++ {
 		isTriggered = checkIsTriggered(vs[i].Value, this.Operator, this.RightValue)
@@ -100,6 +111,7 @@ func (this SumFunction) Compute(L *SafeLinkedList) (vs []*model.HistoryData, lef
 		return
 	}
 
+	// 求和
 	sum := 0.0
 	for i := 0; i < this.Limit; i++ {
 		sum += vs[i].Value
@@ -155,7 +167,7 @@ func (this DiffFunction) Compute(L *SafeLinkedList) (vs []*model.HistoryData, le
 	}
 
 	first := vs[0].Value
-
+	//只要有一个Diff
 	isTriggered = false
 	for i := 1; i < this.Limit+1; i++ {
 		// diff是当前值减去历史值
@@ -196,6 +208,7 @@ func (this PDiffFunction) Compute(L *SafeLinkedList) (vs []*model.HistoryData, l
 			continue
 		}
 
+		// 当前值和之前的某个点的差异的: Percent
 		leftValue = (first - vs[i].Value) / vs[i].Value * 100.0
 		isTriggered = checkIsTriggered(leftValue, this.Operator, this.RightValue)
 		if isTriggered {
@@ -236,6 +249,7 @@ func ParseFuncFromString(str string, operator string, rightValue float64) (fn Fu
 	return
 }
 
+// 判断 left, right 是否满足 operator 意义上的关系
 func checkIsTriggered(leftValue float64, operator string, rightValue float64) (isTriggered bool) {
 	switch operator {
 	case "=", "==":
